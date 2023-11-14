@@ -12,8 +12,9 @@ val sfl4sVersion = "2.0.0-alpha5"
 val hadoopCommonVersion = "3.3.2"
 val hadoopHdfsClientVersion = "3.3.2"
 val logbackClassicVersion = "1.1.3"
-val sparkVersion = "3.4.1"
 val guavaVersion = "31.1-jre"
+val AkkaVersion = "2.8.0"
+val AkkaHttpVersion = "10.5.0"
 
 lazy val commonDependencies = Seq(
   "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
@@ -22,11 +23,15 @@ lazy val commonDependencies = Seq(
   "org.apache.hadoop" % "hadoop-core" % "1.2.1",
   "org.apache.hadoop" % "hadoop-common" % "3.3.5",
   "org.apache.hadoop" % "hadoop-mapreduce-client-jobclient" % "3.3.5",
-  "org.apache.spark" %% "spark-core" % sparkVersion,
-  "org.apache.spark" %% "spark-graphx" % sparkVersion,
-  "org.apache.spark" %% "spark-sql" % sparkVersion,
   "com.google.guava" % "guava" % guavaVersion,
-).map(_.exclude("org.slf4j", "*"))
+  "com.typesafe.akka" %% "akka-http" % AkkaHttpVersion,
+  "com.typesafe.akka" %% "akka-actor-typed" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-http-spray-json" % AkkaHttpVersion,
+  "com.typesafe.akka" %% "akka-stream" % AkkaVersion,
+  "com.typesafe.akka" %% "akka-slf4j" % AkkaVersion
+)
+
+// .map(_.exclude("org.slf4j", "*"))
 
 lazy val root = (project in file("."))
   .settings(

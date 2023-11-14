@@ -1,17 +1,28 @@
 import ConfigReader.getConfigEntry
 import Constants._
 import NetGraphAlgebraDefs.{Action, NetGraphComponent, NodeObject}
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
 import com.google.common.graph.{MutableValueGraph, ValueGraphBuilder}
-import com.typesafe.config.ConfigFactory
 import org.slf4j.Logger
+import spray.json.DefaultJsonProtocol._
+import scala.jdk.CollectionConverters._
+
 
 import java.net.InetAddress
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.sys.exit
+import scala.util._
 
 class Main
 object Main {
   private val originalGraphFileName = getConfigEntry(globalConfig, ORIGINAL_GRAPH_FILE_NAME, DEFAULT_ORIGINAL_GRAPH_FILE_NAME)
   private val perturbedGraphFileName = getConfigEntry(globalConfig, PERTURBED_GRAPH_FILE_NAME, DEFAULT_PERTURBED_ORIGINAL_GRAPH_FILE_NAME)
+  private val RANDOM = new Random
 
   val logger: Logger = CreateLogger(classOf[Main])
   val ipAddr: InetAddress = InetAddress.getLocalHost
@@ -43,7 +54,32 @@ object Main {
       perturbedGraph.putEdgeValue(edge.fromNode, edge.toNode, edge)
     })
 
+    val policeman: Player = new Player(RANDOM.nextInt(perturbedGraph.nodes().size()))
+    val thief: Player = new Player(RANDOM.nextInt(perturbedGraph.nodes().size()))
+    logger.info(s"Policeman will start at node with ID: ${policeman.nodeId}")
+    logger.info(s"Thief will start at node with ID: ${thief.nodeId}")
 
+    implicit val system = ActorSystem("PolicemanThiefGameServer")
+    implicit val nodeObjectFormat = jsonFormat10(NodeObject)
+    val route: Route = path("nodes") {
+     get {
+        onComplete(Future(adjacentNodes(perturbedGraph, policeman).map(_.id))) {
+          case Success(res) => complete(res)
+          case Failure(ex) => complete(ex.toString)
+        }
+      }
+    }
+
+    val server = Http().newServerAt("localhost", 9090).bind(route)
+    server.map { _ => println("Successfully started on localhost:9090")
+    } recover {
+      case ex => println("Failed to start the server due to: " + ex.getMessage)
+    }
+  }
+
+  private def adjacentNodes(graph: MutableValueGraph[NodeObject, Action], player: Player): List[NodeObject] = {
+    val playerCurrentNode = graph.nodes().toArray.filter(_.asInstanceOf[NodeObject].id == player.nodeId)
+    getAdjacentNodes(graph, playerCurrentNode.head.asInstanceOf[NodeObject]).asScala.toList
   }
 
   private def getAdjacentNodes(graph: MutableValueGraph[NodeObject, Action], nodeObject: NodeObject) = {
