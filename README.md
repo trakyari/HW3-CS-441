@@ -29,7 +29,9 @@ Players can
 - GET adjacent nodes given a player ID (ID is known beforehand), if the user requests
 an a player ID that is not valid, they will be told to pick a valid user ID. If the request
 is valid, then the user will receive the nodes that are adjacent to the player ID in
-a list where the nodes are represented by their ID.
+a list where the nodes are represented by their ID. Each node will also contain a confidence
+score which tells the player about whether the node or the edges that lead to it were
+not perturbed.
 - POST a node to move using a node ID that was provided by the GET request, if the
 node the player attempts to move to does not match an ID of a neighboring node then the
 player is informed that the move they performed is not legal and to try again. There
@@ -41,6 +43,8 @@ policeman then they will be informed they have won.
     * If they are a policeman and there is a thief present, they win.
     * If either player moves to the node and there are no more adjacent nodes, they automatically lose.
 
+### Players
+By default, the policeman is a player with ID 
 
 ### Traversing the graph
 If the player queries about adjacent nodes and decides to move
