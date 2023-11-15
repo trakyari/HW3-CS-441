@@ -6,7 +6,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import com.google.common.graph.{EndpointPair, MutableValueGraph, ValueGraphBuilder}
+import com.google.common.graph.{EndpointPair, Graphs, MutableValueGraph, Traverser, ValueGraphBuilder}
 import org.slf4j.Logger
 import spray.json.DefaultJsonProtocol._
 
@@ -20,25 +20,20 @@ import scala.sys.exit
 import scala.util._
 
 class Main
-object Main {
-  private val originalGraphFileName = getConfigEntry(globalConfig, ORIGINAL_GRAPH_FILE_NAME, DEFAULT_ORIGINAL_GRAPH_FILE_NAME)
-  private val perturbedGraphFileName = getConfigEntry(globalConfig, PERTURBED_GRAPH_FILE_NAME, DEFAULT_PERTURBED_ORIGINAL_GRAPH_FILE_NAME)
-  private val RANDOM = new Random
 
+object Main {
   val logger: Logger = CreateLogger(classOf[Main])
   val ipAddr: InetAddress = InetAddress.getLocalHost
   val hostName: String = ipAddr.getHostName
   val hostAddress: String = ipAddr.getHostAddress
-
-
-  case class Move(playerId: Int, nodeId: Int)
-  case class Node(id: Int, confidenceScore: Double)
-  case class Response(message: String)
+  private val originalGraphFileName = getConfigEntry(globalConfig, ORIGINAL_GRAPH_FILE_NAME, DEFAULT_ORIGINAL_GRAPH_FILE_NAME)
+  private val perturbedGraphFileName = getConfigEntry(globalConfig, PERTURBED_GRAPH_FILE_NAME, DEFAULT_PERTURBED_ORIGINAL_GRAPH_FILE_NAME)
+  private val RANDOM = new Random
   private var players: List[Player] = List()
   private var moves: List[(Int, Int)] = List()
 
   def main(args: Array[String]): Unit = {
-    logger.info(s"The Apache Spark program is running on the host $hostName with the following IP addresses:")
+    logger.info(s"The Policeman-Thief game is running on the host $hostName with the following IP addresses:")
     logger.info(hostAddress)
 
     val originalGraphFile = GraphLoader.load(originalGraphFileName, "")
@@ -65,7 +60,7 @@ object Main {
     val policeman: Player = new Player(RANDOM.nextInt(perturbedGraph.nodes().size()), 1, "Policeman")
     val thief: Player = new Player(RANDOM.nextInt(perturbedGraph.nodes().size()), 2, "Thief")
     if (perturbedGraph.nodes.asScala.toList.filter(_.valuableData).exists(_.id == thief.nodeId)) {
-     logger.info("The thief has started a node with valuable data, restarting the game.")
+      logger.info("The thief has started a node with valuable data, restarting the game.")
       while (perturbedGraph.nodes.asScala.toList.filter(_.valuableData).exists(_.id == thief.nodeId)) {
         thief.nodeId = RANDOM.nextInt(perturbedGraph.nodes().size())
       }
@@ -82,30 +77,46 @@ object Main {
     implicit val responseFormat = jsonFormat1(Response)
     implicit val nodeFormat = jsonFormat2(Node)
     val route: Route = path("nodes") {
-     get {
-       parameter("id") {(id) =>
-        onComplete(Future(adjacentNodes(perturbedGraph, id, originalGraph))) {
-          case Success(res) => complete(res)
-          case Failure(ex) => complete(ex.toString)
+      get {
+        parameter("id") { (id) =>
+          onComplete(Future(adjacentNodes(perturbedGraph, id, originalGraph))) {
+            case Success(res) => complete(res)
+            case Failure(ex) => complete(ex.toString)
+          }
         }
-       }
       }
     } ~ path("move") {
-    post {
-      entity(as[Move]) { move =>
-        onComplete(Future(updatePlayerPosition(move, perturbedGraph, originalGraph))) {
+      post {
+        entity(as[Move]) { move =>
+          onComplete(Future(updatePlayerPosition(move, perturbedGraph, originalGraph))) {
+            case Success(res) => complete(res)
+            case Failure(ex) => complete(ex.toString)
+          }
+        }
+      }
+    } ~ path("closest-node-distance") {
+      parameter("id") { id =>
+        onComplete(Future(findNearestNodeWithValuableData(perturbedGraph, id))) {
           case Success(res) => complete(res)
           case Failure(ex) => complete(ex.toString)
         }
       }
+    }
+
+    val server = Http().newServerAt("localhost", 9090).bind(route)
+    server.map { _ => logger.info("Successfully started on localhost:9090")
+    } recover {
+      case ex => logger.error("Failed to start the server due to: " + ex.getMessage)
     }
   }
 
-  val server = Http().newServerAt("localhost", 9090).bind(route)
-    server.map { _ => println("Successfully started on localhost:9090")
-    } recover {
-      case ex => println("Failed to start the server due to: " + ex.getMessage)
-    }
+  def findNearestNodeWithValuableData(perturbedGraph: MutableValueGraph[NodeObject, Action], playerId: String): NodeObject = {
+    val traverser = Traverser.forGraph(Graphs.transpose(perturbedGraph))
+    val player = players.filter(_.id == playerId.toInt).head
+    val nodeObject = perturbedGraph.nodes().asScala.filter(_.id == player.nodeId).head
+    val nodesTraveled = traverser.breadthFirst(nodeObject).asScala.find(node => node.valuableData).toList
+    val valuableNode = nodesTraveled.filter(_.valuableData).head
+    valuableNode
   }
 
   def calculateConfidenceScore(nodeObject: NodeObject, nodeEdges: List[EndpointPair[NodeObject]], originalGraph: MutableValueGraph[NodeObject, Action]): Double = {
@@ -123,9 +134,14 @@ object Main {
     val nodeObject = perturbedGraph.nodes().asScala.filter(_.id == move.nodeId).head
     val player = players.filter(_.id == move.playerId).head
     player.nodeId = move.nodeId
-    if (adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph).isEmpty) {
+
+    if (!originalGraph.nodes().asScala.contains(nodeObject)) {
+      Response("The node does not exist in the original graph!")
+    }
+    else if (adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph).isEmpty) {
       Response("You lose!")
-    } else if (player.role == "Thief" && players.filter(_.role == "Policeman").head.nodeId == move.nodeId) {
+    }
+    else if (player.role == "Thief" && players.filter(_.role == "Policeman").head.nodeId == move.nodeId) {
       Response("You lose!")
     }
     else if (player.role == "Thief" && nodeObject.valuableData) {
@@ -133,19 +149,6 @@ object Main {
     } else {
       Response("OK")
     }
-  }
-
-  private def adjacentNodes(perturbedGraph: MutableValueGraph[NodeObject, Action], id: String, originalGraph: MutableValueGraph[NodeObject, Action]): List[Node] = {
-    val player = players.filter(_.id == id.toInt).head
-    val playerCurrentNode = perturbedGraph.nodes().toArray.filter(_.asInstanceOf[NodeObject].id == player.nodeId)
-    getAdjacentNodes(perturbedGraph, playerCurrentNode.head.asInstanceOf[NodeObject]).asScala.toList.map(nodeObject => {
-      val edges = perturbedGraph.incidentEdges(nodeObject).asScala.toList
-      Node(nodeObject.id, calculateConfidenceScore(nodeObject, edges, originalGraph))
-    })
-  }
-
-  private def getAdjacentNodes(graph: MutableValueGraph[NodeObject, Action], nodeObject: NodeObject) = {
-    graph.adjacentNodes(nodeObject)
   }
 
   def checkGraphValidity(graph: Option[List[NetGraphComponent]]): Unit =
@@ -164,4 +167,23 @@ object Main {
       val edges = lstOfNetComponents.collect { case edge: Action => edge }
       List(nodes, edges)
     }
+
+  private def adjacentNodes(perturbedGraph: MutableValueGraph[NodeObject, Action], id: String, originalGraph: MutableValueGraph[NodeObject, Action]): List[Node] = {
+    val player = players.filter(_.id == id.toInt).head
+    val playerCurrentNode = perturbedGraph.nodes().toArray.filter(_.asInstanceOf[NodeObject].id == player.nodeId)
+    getAdjacentNodes(perturbedGraph, playerCurrentNode.head.asInstanceOf[NodeObject]).asScala.toList.map(nodeObject => {
+      val edges = perturbedGraph.incidentEdges(nodeObject).asScala.toList
+      Node(nodeObject.id, calculateConfidenceScore(nodeObject, edges, originalGraph))
+    })
+  }
+
+  private def getAdjacentNodes(graph: MutableValueGraph[NodeObject, Action], nodeObject: NodeObject) = {
+    graph.adjacentNodes(nodeObject)
+  }
+
+  case class Move(playerId: Int, nodeId: Int)
+
+  case class Node(id: Int, confidenceScore: Double)
+
+  case class Response(message: String)
 }
