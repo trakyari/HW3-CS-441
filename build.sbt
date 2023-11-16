@@ -11,7 +11,7 @@ val logbackVersion = "1.2.10"
 val sfl4sVersion = "2.0.0-alpha5"
 val hadoopCommonVersion = "3.3.2"
 val hadoopHdfsClientVersion = "3.3.2"
-val logbackClassicVersion = "1.4.7"
+val logbackClassicVersion = "1.2.12"
 val guavaVersion = "31.1-jre"
 val AkkaVersion = "2.8.0"
 val AkkaHttpVersion = "10.5.0"
@@ -51,9 +51,10 @@ run / javaOptions ++= Seq(
 Compile / mainClass := Some("Main")
 run / mainClass := Some("Main")
 
-assembly / assemblyJarName := "HW2.jar"
+assembly / assemblyJarName := "HW3.jar"
 
 ThisBuild / assemblyMergeStrategy := {
   case PathList("META-INF", _*) => MergeStrategy.discard
+  case "reference.conf" => MergeStrategy.concat
   case _ => MergeStrategy.first
 }

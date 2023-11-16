@@ -5,6 +5,43 @@ atraky2@uic.edu
 
 ## How to run
 
+### AWS EC2
+
+Create a AWS EC2 instance, set machine instance to Amazon Linux 2023.
+
+Generate a ssh keypair.
+
+SSH into the machine.
+```shell
+ssh <ec2-user>@<aws-ip>
+```
+
+where `ec2-user` is usually `ec2-user` and `aws-ip` can be found in AWS.
+
+Install OpenJDK 11
+```shell
+sudo yum install java-11-amazon-corretto-headless
+```
+
+Copy over uber jar, and input files
+
+```shell
+scp .\target\scala-2.13\HW3.jar <ec2-user>@<aws-ip>:<aws-directory>
+```
+
+```shell
+scp Netgraph.ngs <ec2-user>@<aws-ip>:<aws-directory>
+```
+
+```shell
+scp Netgraph.ngs.perturbed <ec2-user>@<aws-ip>:<aws-directory>
+```
+
+Run the program
+```shell
+java -jar HW3.jar
+```
+
 ## Design
 The goal of this project is to create a Policeman / Thief game
 in which the policeman and thief are players that play on the
