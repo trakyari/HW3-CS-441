@@ -9,10 +9,19 @@ import akka.http.scaladsl.server.Route
 import com.google.common.graph.{EndpointPair, Graphs, MutableValueGraph, Traverser, ValueGraphBuilder}
 import org.slf4j.Logger
 import spray.json.DefaultJsonProtocol._
+import org.jgrapht._
+import org.jgrapht.alg.connectivity._
+import org.jgrapht.alg.interfaces.ShortestPathAlgorithm._
+import org.jgrapht.alg.interfaces._
+import org.jgrapht.alg.shortestpath._
+import org.jgrapht.graph._
+import org.jgrapht.graph.guava._
+import org.jgrapht.traverse.BreadthFirstIterator
 
 import scala.jdk.CollectionConverters._
 import java.net.InetAddress
 import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.math.BigDecimal.RoundingMode
@@ -76,6 +85,8 @@ object Main {
     implicit val moveFormat = jsonFormat2(Move)
     implicit val responseFormat = jsonFormat1(Response)
     implicit val nodeFormat = jsonFormat2(Node)
+    implicit val nearestNodeFormat = jsonFormat2(NearestNode)
+
     val route: Route = path("nodes") {
       get {
         parameter("id") { (id) =>
@@ -110,13 +121,18 @@ object Main {
     }
   }
 
-  def findNearestNodeWithValuableData(perturbedGraph: MutableValueGraph[NodeObject, Action], playerId: String): NodeObject = {
-    val traverser = Traverser.forGraph(Graphs.transpose(perturbedGraph))
+  def findNearestNodeWithValuableData(perturbedGraph: MutableValueGraph[NodeObject, Action], playerId: String): NearestNode = {
+    val initNode = perturbedGraph.nodes().asScala.filter(_.id == 1).head
+    val action = Action(1, initNode, initNode, initNode.id, initNode.id, Some(1), 0.0)
+    val jgrapht: Graph[NodeObject, Action] = new MutableValueGraphAdapter[NodeObject, Action](perturbedGraph, action, (x: Action) => x.cost).asInstanceOf[Graph[NodeObject, Action]]
     val player = players.filter(_.id == playerId.toInt).head
-    val nodeObject = perturbedGraph.nodes().asScala.filter(_.id == player.nodeId).head
-    val nodesTraveled = traverser.breadthFirst(nodeObject).asScala.find(node => node.valuableData).toList
-    val valuableNode = nodesTraveled.filter(_.valuableData).head
-    valuableNode
+    val startNode = perturbedGraph.nodes().asScala.filter(_.id == player.nodeId).head
+
+    val bfsIterator = new BreadthFirstIterator(jgrapht, startNode)
+    val bfsNearestValuableNode = bfsIterator.asScala.find(_.valuableData)
+    val bfsNearestValuableNodeDistance = bfsNearestValuableNode.map(bfsIterator.getDepth)
+
+    NearestNode(bfsNearestValuableNode.map(_.id) getOrElse(-1), bfsNearestValuableNodeDistance getOrElse(-1))
   }
 
   def calculateConfidenceScore(nodeObject: NodeObject, nodeEdges: List[EndpointPair[NodeObject]], originalGraph: MutableValueGraph[NodeObject, Action]): Double = {
@@ -180,6 +196,8 @@ object Main {
   private def getAdjacentNodes(graph: MutableValueGraph[NodeObject, Action], nodeObject: NodeObject) = {
     graph.adjacentNodes(nodeObject)
   }
+
+  case class NearestNode(id: Int, distance: Int)
 
   case class Move(playerId: Int, nodeId: Int)
 
