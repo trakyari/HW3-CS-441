@@ -3,6 +3,8 @@ Arijus Trakymas
 
 atraky2@uic.edu
 
+AWS EC2 deployment [video](https://youtu.be/1wTTcWBDIrM)
+
 ## How to run
 
 ### AWS EC2
@@ -81,7 +83,7 @@ policeman then they will be informed they have won.
     * If either player moves to the node and there are no more adjacent nodes, they automatically lose.
 
 ### Players
-By default, the policeman is a player with ID 
+By default, the policeman is a player with ID 1 while the thief has an ID of 2.
 
 ### Traversing the graph
 If the player queries about adjacent nodes and decides to move
