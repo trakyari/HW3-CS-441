@@ -44,6 +44,11 @@ Run the program
 java -jar HW3.jar
 ```
 
+Run tests
+```shell
+sbt clean compile test
+```
+
 ## Design
 The goal of this project is to create a Policeman / Thief game
 in which the policeman and thief are players that play on the

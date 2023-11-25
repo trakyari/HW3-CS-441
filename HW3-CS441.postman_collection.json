@@ -1,0 +1,91 @@
+{
+	"info": {
+		"_postman_id": "e2d46a65-f2fd-4630-bfb8-da3703e4aa3c",
+		"name": "HW3-CS441",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23726549"
+	},
+	"item": [
+		{
+			"name": "http://localhost:9090/nodes?id=1",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:9090/nodes?id=1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "9090",
+					"path": [
+						"nodes"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:9090/move",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"playerId\": 2,\r\n    \"nodeId\": 290\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:9090/move",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "9090",
+					"path": [
+						"move"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://3.23.132.39:9090/closest-node-distance?id=2",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://3.23.132.39:9090/closest-node-distance?id=2",
+					"protocol": "http",
+					"host": [
+						"3",
+						"23",
+						"132",
+						"39"
+					],
+					"port": "9090",
+					"path": [
+						"closest-node-distance"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

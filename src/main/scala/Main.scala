@@ -90,7 +90,7 @@ object Main {
     val route: Route = path("nodes") {
       get {
         parameter("id") { (id) =>
-          onComplete(Future(adjacentNodes(perturbedGraph, id, originalGraph))) {
+          onComplete(Future(adjacentNodes(perturbedGraph, id, originalGraph, players))) {
             case Success(res) => complete(res)
             case Failure(ex) => complete(ex.toString)
           }
@@ -141,12 +141,12 @@ object Main {
     }
 
     val originalGraphNodeEdges = originalGraph.incidentEdges(nodeObject).asScala.toList
-    val confidenceScore: Double = nodeEdges.map(originalGraphNodeEdges.contains(_)).map(boolean => if (boolean) 1.0 else 0.0).sum / nodeEdges.length.toDouble
+    val confidenceScore: Double = originalGraphNodeEdges.map(nodeEdges.contains(_)).map(boolean => if (boolean) 1.0 else 0.0).sum / originalGraphNodeEdges.length.toDouble
     BigDecimal(confidenceScore).setScale(2, RoundingMode.HALF_UP).toDouble
   }
 
   def updatePlayerPosition(move: Move, perturbedGraph: MutableValueGraph[NodeObject, Action], originalGraph: MutableValueGraph[NodeObject, Action]): Response = {
-    val neighboringNodes = adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph)
+    val neighboringNodes = adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph, players)
     val nodeObject = perturbedGraph.nodes().asScala.filter(_.id == move.nodeId).head
     val player = players.filter(_.id == move.playerId).head
     player.nodeId = move.nodeId
@@ -154,7 +154,7 @@ object Main {
     if (!originalGraph.nodes().asScala.contains(nodeObject)) {
       Response("The node does not exist in the original graph!")
     }
-    else if (adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph).isEmpty) {
+    else if (adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph, players).isEmpty) {
       Response("You lose!")
     }
     else if (player.role == "Thief" && players.filter(_.role == "Policeman").head.nodeId == move.nodeId) {
@@ -184,7 +184,7 @@ object Main {
       List(nodes, edges)
     }
 
-  private def adjacentNodes(perturbedGraph: MutableValueGraph[NodeObject, Action], id: String, originalGraph: MutableValueGraph[NodeObject, Action]): List[Node] = {
+  def adjacentNodes(perturbedGraph: MutableValueGraph[NodeObject, Action], id: String, originalGraph: MutableValueGraph[NodeObject, Action], players: List[Player]): List[Node] = {
     val player = players.filter(_.id == id.toInt).head
     val playerCurrentNode = perturbedGraph.nodes().toArray.filter(_.asInstanceOf[NodeObject].id == player.nodeId)
     getAdjacentNodes(perturbedGraph, playerCurrentNode.head.asInstanceOf[NodeObject]).asScala.toList.map(nodeObject => {
