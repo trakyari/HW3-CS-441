@@ -49,6 +49,13 @@ Run tests
 sbt clean compile test
 ```
 
+## How to use
+Import the postman collection found in the root directory into Postman.
+
+The different endpoints allow you to interact with the game.
+
+The ID's for the players are listed below in the design.
+
 ## Design
 The goal of this project is to create a Policeman / Thief game
 in which the policeman and thief are players that play on the

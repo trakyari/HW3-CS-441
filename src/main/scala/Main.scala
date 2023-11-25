@@ -121,6 +121,10 @@ object Main {
     }
   }
 
+  def resetPlayers(random: Random, players: List[Player], graphSize: Int): Unit = {
+   players.foreach(_.id == random.nextInt(graphSize))
+  }
+
   def findNearestNodeWithValuableData(perturbedGraph: MutableValueGraph[NodeObject, Action], playerId: String): NearestNode = {
     val initNode = perturbedGraph.nodes().asScala.filter(_.id == 1).head
     val action = Action(1, initNode, initNode, initNode.id, initNode.id, Some(1), 0.0)
@@ -155,12 +159,15 @@ object Main {
       Response("The node does not exist in the original graph!")
     }
     else if (adjacentNodes(perturbedGraph, move.playerId.toString, originalGraph, players).isEmpty) {
+      resetPlayers(RANDOM, players, perturbedGraph.nodes().size())
       Response("You lose!")
     }
     else if (player.role == "Thief" && players.filter(_.role == "Policeman").head.nodeId == move.nodeId) {
+      resetPlayers(RANDOM, players, perturbedGraph.nodes().size())
       Response("You lose!")
     }
     else if (player.role == "Thief" && nodeObject.valuableData) {
+      resetPlayers(RANDOM, players, perturbedGraph.nodes().size())
       Response("You win!")
     } else {
       Response("OK")
